@@ -1,0 +1,5 @@
+outs:
+- md5: aa8c231977e2668fced50fa6c55cb236
+  size: 4891514
+  hash: md5
+  path: train_commands.json

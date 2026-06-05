@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Data is versioned by DVC (it manages data/.gitignore; .dvc pointer files ARE committed).
+# Models / checkpoints stay out of git.
+*.sif
+checkpoints/
+*.pth
+*.ckpt
+
+# Experiment tracking / Hydra outputs
+mlruns/
+mlartifacts/
+mlflow.db
+outputs/
+multirun/
+.hydra/
+
+# Env / secrets
+.env
+*.local
+scripts/hpc/cluster.env
+logs/
+
+# OS
+.DS_Store
+
+# Claude
+CLAUDE.md
