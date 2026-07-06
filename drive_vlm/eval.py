@@ -8,6 +8,8 @@ box by more than 0.5 IoU. Boxes are [x1, y1, x2, y2] in pixels.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 Box = tuple[float, float, float, float]
 
 
@@ -28,7 +30,7 @@ def iou(a: Box, b: Box) -> float:
     return inter / union if union > 0 else 0.0
 
 
-def accuracy_at_50(preds: list[Box | None], gts: list[Box]) -> float:
+def accuracy_at_50(preds: Sequence[Box | None], gts: Sequence[Box]) -> float:
     """Fraction of samples with IoU(pred, gt) > 0.5. A missing prediction (None) counts as 0."""
     if len(preds) != len(gts):
         raise ValueError(f"preds/gts length mismatch: {len(preds)} vs {len(gts)}")
