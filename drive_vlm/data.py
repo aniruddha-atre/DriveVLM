@@ -1,4 +1,5 @@
-"""Talk2Car data loading.
+"""
+Talk2Car data loading.
 
 One sample = (image path, command text, ground-truth box, object label). Boxes are normalized
 to [x1, y1, x2, y2] in pixels here, so the rest of the codebase never deals with raw formats.

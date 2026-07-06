@@ -14,18 +14,16 @@ checkpoints/
 *.pth
 *.ckpt
 
-# Experiment tracking / Hydra outputs
+# Experiment tracking (MLflow local store)
 mlruns/
 mlartifacts/
-mlflow.db
-outputs/
-multirun/
-.hydra/
+mlflow*.db
 
 # Env / secrets
 .env
 *.local
 scripts/hpc/cluster.env
+scripts/hpc/
 logs/
 
 # OS
@@ -33,3 +31,9 @@ logs/
 
 # Claude
 CLAUDE.md
+
+# Personal notes (interview prep / problem log) — not committed
+info.md
+
+# Gradio
+.gradio

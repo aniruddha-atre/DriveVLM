@@ -49,9 +49,9 @@ rsync -av --exclude .venv --exclude data ./ rwth:~/Drive-VLM/   # code
 ```bash
 ssh rwth
 cd ~/Drive-VLM && mkdir -p logs
-sbatch --account=<your_account> scripts/hpc/eval_baseline.slurm
+sbatch --account=<your_account> scripts/hpc/eval.slurm scripts/eval_gdino.py --split val
 squeue --me            # watch it
-tail -f logs/t2c-eval-*.out
+tail -f logs/t2c-*.out
 ```
 
 ## RWTH specifics to confirm once logged in

@@ -1,4 +1,5 @@
-"""Evaluation metric for Talk2Car grounding.
+"""
+Evaluation metric for Talk2Car grounding.
 
 Talk2Car has exactly one referred object per command, so the official "AP50" reduces to
 accuracy @ IoU>0.5: the fraction of commands whose predicted box overlaps the ground-truth
