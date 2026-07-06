@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import re
 from pathlib import Path
 from typing import cast
 
@@ -31,10 +30,9 @@ from transformers import (
 )
 
 from drive_vlm.data import Sample, load_split
-from drive_vlm.eval import Box, accuracy_at_50
+from drive_vlm.eval import Box, accuracy_at_50, parse_box
 
 CKPT = "Qwen/Qwen2.5-VL-3B-Instruct"
-BOX_RE = re.compile(r"(-?\d+\.?\d*)\D+(-?\d+\.?\d*)\D+(-?\d+\.?\d*)\D+(-?\d+\.?\d*)")
 
 
 def grounding_prompt(command: str) -> str:
@@ -112,8 +110,7 @@ def eval_accuracy(model, processor, samples: list[Sample], device: torch.device)
         out = processor.batch_decode(
             gen[:, inputs["input_ids"].shape[1] :], skip_special_tokens=True
         )[0]
-        m = BOX_RE.search(out)
-        preds.append((float(m[1]), float(m[2]), float(m[3]), float(m[4])) if m else None)
+        preds.append(parse_box(out))
     gts = [s.box for s in samples]
     return {
         "accuracy_at_50": accuracy_at_50(preds, gts),

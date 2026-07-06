@@ -8,9 +8,27 @@ box by more than 0.5 IoU. Boxes are [x1, y1, x2, y2] in pixels.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 
 Box = tuple[float, float, float, float]
+
+# Matches one signed integer or decimal. Model box output is parsed by taking the first four.
+_NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def parse_box(text: str) -> Box | None:
+    """Parse the box a VLM emits as text (e.g. "[975, 463, 1141, 575]") into (x1, y1, x2, y2).
+
+    Takes the first four numbers found; returns None if fewer than four are present. This is the
+    single parser shared by the Qwen eval/train/demo paths — a bug here silently corrupts the
+    box-as-text results, so it is unit-tested.
+    """
+    nums = _NUM_RE.findall(text)
+    if len(nums) < 4:
+        return None
+    x1, y1, x2, y2 = (float(n) for n in nums[:4])
+    return (x1, y1, x2, y2)
 
 
 def iou(a: Box, b: Box) -> float:

@@ -55,8 +55,7 @@ Negligible val→test drop (0.002 / 0.007) — the models generalize, they don't
 
 - **DVC** versions the dataset — pointer files committed to git, image bytes in a remote.
 - **MLflow** logs every run (params, metrics, checkpoints); `mlflow_hpc.db` holds all experiments.
-- **Apptainer + SLURM** run containerized training on RWTH HPC (H100), driven over an SSH
-  ControlMaster session — see `scripts/hpc/`.
+- **Apptainer + SLURM** — training ran in an Apptainer container on RWTH HPC (H100) via SLURM.
 - **Gradio** serves the fine-tuned checkpoint as an interactive demo.
 
 ## Quickstart
@@ -75,7 +74,6 @@ uv run python scripts/finetune_gdino.py --freeze-backbone --epochs 6      # Grou
 uv run python scripts/finetune_qwen.py --lora-r 32 --epochs 3             # Qwen2.5-VL LoRA
 ```
 
-
 ## Repository
 
 ```text
@@ -88,7 +86,6 @@ scripts/
   eval_gdino.py      eval a GDINO checkpoint on any split
   eval_qwen.py       eval Qwen (zero-shot or with a LoRA adapter)
   demo.py            Gradio app on the fine-tuned checkpoint
-  hpc/               Apptainer container def + SLURM jobs + setup notes
 tests/               pytest for the metric
 data/                Talk2Car (DVC-tracked, git-ignored)
 ```

@@ -15,7 +15,6 @@ predictions visually before trusting the number; add a scale factor here if boxe
 from __future__ import annotations
 
 import argparse
-import re
 from pathlib import Path
 from typing import cast
 
@@ -26,12 +25,9 @@ from tqdm import tqdm
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 from drive_vlm.data import load_split
-from drive_vlm.eval import Box, accuracy_at_50
+from drive_vlm.eval import Box, accuracy_at_50, parse_box
 
 CKPT = "Qwen/Qwen2.5-VL-3B-Instruct"
-BOX_RE = re.compile(
-    r"(-?\d+(?:\.\d+)?)\D+(-?\d+(?:\.\d+)?)\D+(-?\d+(?:\.\d+)?)\D+(-?\d+(?:\.\d+)?)"
-)
 
 
 def predict(model, processor, image: Image.Image, command: str, device) -> Box | None:
@@ -53,11 +49,7 @@ def predict(model, processor, image: Image.Image, command: str, device) -> Box |
     out = processor.batch_decode(gen[:, inputs["input_ids"].shape[1] :], skip_special_tokens=True)[
         0
     ]
-    m = BOX_RE.search(out)
-    if not m:
-        return None
-    g = m.groups()
-    return (float(g[0]), float(g[1]), float(g[2]), float(g[3]))  # xyxy — MAY need scaling (caveat)
+    return parse_box(out)  # xyxy pixels — MAY need scaling (see caveat above)
 
 
 def main() -> None:

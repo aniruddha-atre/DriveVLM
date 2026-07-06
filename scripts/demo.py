@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -31,7 +30,7 @@ import torch
 from PIL import Image, ImageDraw
 from transformers import AutoProcessor, GroundingDinoForObjectDetection
 
-Box = tuple[float, float, float, float]
+from drive_vlm.eval import Box, parse_box
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # On CPU, use every core — this is the single biggest latency win for GDINO.
@@ -40,7 +39,6 @@ if DEVICE.type == "cpu":
 
 GDINO_NAME = "Grounding DINO (fine-tuned)"
 QWEN_NAME = "Qwen2.5-VL LoRA (fine-tuned)"
-BOX_RE = re.compile(r"(-?\d+\.?\d*)\D+(-?\d+\.?\d*)\D+(-?\d+\.?\d*)\D+(-?\d+\.?\d*)")
 
 
 def grounding_prompt(command: str) -> str:
@@ -112,10 +110,7 @@ class QwenModel:
         out = self.processor.batch_decode(
             gen[:, inp["input_ids"].shape[1] :], skip_special_tokens=True
         )[0]
-        m = BOX_RE.search(out)
-        if not m:
-            return None, None
-        return (float(m[1]), float(m[2]), float(m[3]), float(m[4])), None  # no calibrated score
+        return parse_box(out), None  # no calibrated confidence for a text-generated box
 
 
 def draw(img: Image.Image, box: Box | None) -> Image.Image:

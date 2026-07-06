@@ -22,7 +22,7 @@ mlflow*.db
 # Env / secrets
 .env
 *.local
-scripts/hpc/cluster.env
+# HPC job scripts / container defs — cluster-specific, kept local only
 scripts/hpc/
 logs/
 
