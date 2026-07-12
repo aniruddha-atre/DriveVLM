@@ -1,7 +1,7 @@
 """
 Evaluate a (fine-tuned) Grounding DINO checkpoint on a Talk2Car split.
 
-REC = one object per command, so we always take the top-1 box (threshold=0). Reports
+One object per command, so we always take the top-scoring box (threshold=0). Reports
 accuracy@50. Defaults to the fine-tuned checkpoint; pass the HF id for zero-shot.
 
     python scripts/eval_gdino.py --checkpoint checkpoints/gdino-t2c --split test

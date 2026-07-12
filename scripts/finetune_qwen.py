@@ -1,10 +1,10 @@
 """
 LoRA fine-tune Qwen2.5-VL on Talk2Car referring-expression grounding (box-as-text SFT).
 
-Qwen2.5-VL emits the box as TEXT. We instruction-tune it with LoRA (PEFT) to output the correct
-`[x1, y1, x2, y2]` for the referred object. Loss = causal-LM cross-entropy on the assistant's box
-tokens only (the prompt is masked). Qwen's coords are ~in the original image space (its smart-resize
-keeps 1600x900 near 1:1), so targets use original pixel coords — matching the eval parser.
+Qwen2.5-VL writes the box out as text. We fine-tune it with LoRA (PEFT) to output the right
+`[x1, y1, x2, y2]` for the referred object, training the loss only on the box tokens (the prompt
+is masked out). Qwen keeps coordinates close to the original 1600x900 image, so targets use raw
+pixel coords — the same space the eval parser reads.
 
 Container deps: peft, qwen-vl-utils, accelerate. VALIDATE first: `--limit 8 --max-steps 2`.
 

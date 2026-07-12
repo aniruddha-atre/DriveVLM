@@ -1,13 +1,8 @@
 """
 Zero-shot Qwen2.5-VL referring-expression grounding on Talk2Car -> accuracy@50.
 
-Qwen2.5-VL is an autoregressive VLM: it emits the box as TEXT. We prompt for the box and parse
-the first [x1,y1,x2,y2]. REC = one object, so we take that single box.
-
-Container deps needed (add to .venvc): `qwen-vl-utils`, `accelerate`.
-CAVEAT — VALIDATE FIRST on a small --limit: Qwen2.5-VL returns coordinates in the *processed*
-(smart-resized) image space, so they may need scaling back to the original 1600x900. Check a few
-predictions visually before trusting the number; add a scale factor here if boxes are off.
+Qwen2.5-VL writes the box out as text. We prompt for it and parse the first [x1,y1,x2,y2]; there's
+one object per command, so that single box is the prediction.
 
     python scripts/eval_qwen.py --split val --limit 30
 """

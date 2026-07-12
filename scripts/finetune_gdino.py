@@ -1,8 +1,7 @@
 """
 Fine-tune Grounding DINO on Talk2Car referring-expression grounding.
 
-Each command describes ONE object, so for HF's GroundingDINO loss every image is a single
-"class" (index 0, whose text positive-map the model builds from the command) with one box.
+Each command refers to one object, so every image is trained as a single box for that command.
 
     # smoke test (tiny, validates forward+backward on GPU in seconds):
     python scripts/finetune_gdino.py --limit 8 --max-steps 2 --epochs 1 --allow-cpu
@@ -84,7 +83,7 @@ def make_collate(processor):
 def eval_accuracy(
     model: GroundingDinoForObjectDetection, processor, samples: list[Sample], device: torch.device
 ) -> dict:
-    """REC has exactly one object per command -> ALWAYS take the top-scoring box (no threshold)."""
+    """One object per command, so always take the top-scoring box (no threshold)."""
     model.eval()
     preds, gts = [], []
     for s in samples:
@@ -203,14 +202,14 @@ def main() -> None:
         )
         print(f"train={len(train)} val={len(val)} trainable_params={n_train:,} device={device}")
 
-        # Zero-shot baseline with the SAME (top-1) metric, for an apples-to-apples comparison.
+        # Zero-shot baseline scored with the same top-1 metric, so the comparison is fair.
         base = eval_accuracy(model, processor, val, device)
         print(f"[baseline/zero-shot] val {base}", flush=True)
         mlflow.log_metric("accuracy_at_50", base["accuracy_at_50"], step=0)
         mlflow.log_metric("baseline_accuracy_at_50", base["accuracy_at_50"])
 
-        # Save processor up front; checkpoint the BEST epoch as we go (c23g_low is preemptible,
-        # so a long run can be killed mid-way — never rely on a single save at the end).
+        # Save the processor up front and checkpoint the best epoch as we go — the low-priority
+        # GPU partition can kill a long run part-way, so don't rely on a single save at the end.
         out_dir = Path(args.out)
         out_dir.mkdir(parents=True, exist_ok=True)
         processor.save_pretrained(out_dir)

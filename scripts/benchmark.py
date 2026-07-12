@@ -1,12 +1,9 @@
-"""Inference benchmark harness — latency / throughput / VRAM / quality across precisions.
+"""
+Inference benchmark for Grounding DINO: latency / throughput / VRAM / accuracy across precisions.
 
-The deliverable is the TABLE, not a demo. For each (backend, batch size) it reports p50/p90
-latency, throughput, and peak VRAM; per backend it also reports accuracy@0.5 on a small slice,
-so a memory saving is only "free" if it doesn't cost quality.
-
-Model-agnostic: a Backend just needs `.load()` and `.infer(images, commands) -> list[Box|None]`.
-Grounding DINO fits in 6 GB and runs locally across fp32/fp16/bf16; the same harness is meant to
-be pointed at quantized Qwen2.5-VL on a bigger GPU (bnb-4bit / GPTQ+vLLM) to fill the headline row.
+For each (precision, batch size) it reports p50/p90 latency, throughput, and peak VRAM; per
+precision it reports accuracy@0.5 on a small slice, so a memory saving only counts if quality
+holds. Model-agnostic: a Backend needs `.load()` and `.infer(images, commands) -> list[Box|None]`.
 
     uv run python scripts/benchmark.py --precisions fp16 bf16 --batch-sizes 1 4 8 --acc-samples 50
 """
@@ -14,6 +11,7 @@ be pointed at quantized Qwen2.5-VL on a bigger GPU (bnb-4bit / GPTQ+vLLM) to fil
 from __future__ import annotations
 
 import argparse
+import contextlib
 import statistics
 import time
 from pathlib import Path
@@ -26,7 +24,9 @@ from transformers import AutoProcessor, GroundingDinoForObjectDetection
 from drive_vlm.data import load_split
 from drive_vlm.eval import Box, accuracy_at_50
 
-DTYPES = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
+# fp16/bf16 use autocast, NOT model.half(): Grounding DINO's deformable attention calls
+# grid_sample, which errors on half inputs — autocast keeps that op in fp32 automatically.
+PRECISIONS = {"fp32": None, "fp16": torch.float16, "bf16": torch.bfloat16}
 
 
 def fmt(command: str) -> str:
@@ -34,15 +34,16 @@ def fmt(command: str) -> str:
 
 
 class GDinoBackend:
-    """Fine-tuned Grounding DINO at a given precision. Always returns the top-1 box (REC)."""
+    """Fine-tuned Grounding DINO at a given precision. Always returns the top-scoring box."""
 
-    def __init__(self, checkpoint: str, dtype: torch.dtype, device: torch.device):
-        self.checkpoint, self.dtype, self.device = checkpoint, dtype, device
-        self.name = f"gdino-{[k for k, v in DTYPES.items() if v == dtype][0]}"
+    def __init__(self, checkpoint: str, precision: str, device: torch.device):
+        self.checkpoint, self.device = checkpoint, device
+        self.amp_dtype = PRECISIONS[precision]  # None for fp32
+        self.name = f"gdino-{precision}" + ("" if self.amp_dtype is None else " (amp)")
 
     def load(self) -> None:
         self.processor = AutoProcessor.from_pretrained(self.checkpoint)
-        model = GroundingDinoForObjectDetection.from_pretrained(self.checkpoint, torch_dtype=self.dtype)
+        model = GroundingDinoForObjectDetection.from_pretrained(self.checkpoint)
         cast(torch.nn.Module, model).to(self.device)
         self.model = model.eval()
 
@@ -50,8 +51,12 @@ class GDinoBackend:
         inp = self.processor(
             images=images, text=[fmt(c) for c in commands], return_tensors="pt", padding=True
         ).to(self.device)
-        inp["pixel_values"] = inp["pixel_values"].to(self.dtype)  # match model precision
-        with torch.inference_mode():
+        amp = (
+            torch.autocast("cuda", dtype=self.amp_dtype)
+            if self.amp_dtype is not None
+            else contextlib.nullcontext()
+        )
+        with torch.inference_mode(), amp:
             out = self.model(**inp)
         results = self.processor.post_process_grounded_object_detection(
             out,
@@ -89,11 +94,19 @@ def measure_latency(backend, images, commands, batch_sizes, iters, warmup) -> li
             p90 = sorted(lat)[int(0.9 * (len(lat) - 1))]
             peak = torch.cuda.max_memory_allocated() / 1e9
             rows.append(
-                {"batch": bs, "p50_ms": p50 * 1e3, "p90_ms": p90 * 1e3, "img_s": bs / p50, "vram_gb": peak}
+                {
+                    "batch": bs,
+                    "p50_ms": p50 * 1e3,
+                    "p90_ms": p90 * 1e3,
+                    "img_s": bs / p50,
+                    "vram_gb": peak,
+                }
             )
         except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()
-            rows.append({"batch": bs, "p50_ms": None, "p90_ms": None, "img_s": None, "vram_gb": None})
+            rows.append(
+                {"batch": bs, "p50_ms": None, "p90_ms": None, "img_s": None, "vram_gb": None}
+            )
     return rows
 
 
@@ -134,11 +147,13 @@ def to_markdown(results: dict[str, dict]) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", default="checkpoints/gdino-t2c")
-    ap.add_argument("--precisions", nargs="+", default=["fp32", "fp16", "bf16"], choices=list(DTYPES))
+    ap.add_argument(
+        "--precisions", nargs="+", default=["fp32", "fp16", "bf16"], choices=list(PRECISIONS)
+    )
     ap.add_argument("--batch-sizes", nargs="+", type=int, default=[1, 4, 8])
     ap.add_argument("--iters", type=int, default=20)
     ap.add_argument("--warmup", type=int, default=3)
-    ap.add_argument("--acc-samples", type=int, default=50, help="val slice for accuracy (0 to skip)")
+    ap.add_argument("--acc-samples", type=int, default=50, help="val slice for accuracy (0=skip)")
     ap.add_argument("--data-dir", default="data")
     ap.add_argument("--out", default="assets/benchmark.md")
     args = ap.parse_args()
@@ -155,9 +170,11 @@ def main() -> None:
 
     results: dict[str, dict] = {}
     for prec in args.precisions:
-        backend = GDinoBackend(args.checkpoint, DTYPES[prec], device)
+        backend = GDinoBackend(args.checkpoint, prec, device)
         backend.load()
-        rows = measure_latency(backend, lat_imgs, lat_cmds, args.batch_sizes, args.iters, args.warmup)
+        rows = measure_latency(
+            backend, lat_imgs, lat_cmds, args.batch_sizes, args.iters, args.warmup
+        )
         acc = measure_accuracy(backend, acc_samples) if acc_samples else None
         results[backend.name] = {"rows": rows, "acc": acc}
         print(f"done: {backend.name}", flush=True)
@@ -170,7 +187,9 @@ def main() -> None:
         f"iters={args.iters}, acc slice n={args.acc_samples}\n\n"
     )
     table = to_markdown(results)
-    Path(args.out).write_text(header + table + "\n")
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(header + table + "\n")
     print("\n" + header + table)
     print(f"\nwrote {args.out}")
 

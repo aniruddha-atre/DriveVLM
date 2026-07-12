@@ -1,9 +1,9 @@
 """
 Evaluation metric for Talk2Car grounding.
 
-Talk2Car has exactly one referred object per command, so the official "AP50" reduces to
-accuracy @ IoU>0.5: the fraction of commands whose predicted box overlaps the ground-truth
-box by more than 0.5 IoU. Boxes are [x1, y1, x2, y2] in pixels.
+One referred object per command, so accuracy@0.5 (Talk2Car's "AP50") is just the fraction of
+predictions that overlap the ground-truth box by more than 0.5 IoU. Boxes are [x1, y1, x2, y2]
+in pixels.
 """
 
 from __future__ import annotations
@@ -18,11 +18,10 @@ _NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 
 def parse_box(text: str) -> Box | None:
-    """Parse the box a VLM emits as text (e.g. "[975, 463, 1141, 575]") into (x1, y1, x2, y2).
+    """Pull the box out of the VLM's text, e.g. "[975, 463, 1141, 575]" -> (x1, y1, x2, y2).
 
-    Takes the first four numbers found; returns None if fewer than four are present. This is the
-    single parser shared by the Qwen eval/train/demo paths — a bug here silently corrupts the
-    box-as-text results, so it is unit-tested.
+    Uses the first four numbers, or None if there aren't four. Shared by the Qwen eval/train/demo
+    paths, so it's unit-tested.
     """
     nums = _NUM_RE.findall(text)
     if len(nums) < 4:
