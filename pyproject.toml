@@ -22,6 +22,9 @@ serving = [
     "imageio[ffmpeg]>=2.34",  # frame-by-frame video tab
     "peft>=0.11",             # Qwen2.5-VL LoRA adapter (optional model in the demo)
     "accelerate>=0.30",
+    "fastapi>=0.110",         # REST API
+    "uvicorn[standard]>=0.29",  # ASGI server that runs the API
+    "python-multipart>=0.0.9",  # lets FastAPI accept file uploads
 ]
 
 [dependency-groups]

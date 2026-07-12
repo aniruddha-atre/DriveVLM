@@ -1,0 +1,22 @@
+# Keep the build context tiny — Docker sends everything here to the daemon otherwise.
+# We only COPY scripts/serve.py + checkpoints/gdino-t2c in the Dockerfile.
+.git
+.venv
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Huge / irrelevant to the serving image
+data/
+notebooks/
+assets/
+mlflow*.db
+mlruns/
+info.md
+tests/
+
+# Other models / cluster scripts not used by the API
+checkpoints/qwen25vl-t2c-lora
+checkpoints/qwen25vl-t2c-lora-v2
+scripts/hpc/
